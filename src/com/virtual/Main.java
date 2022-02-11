@@ -6,6 +6,7 @@ import tel.schich.javacan.util.CanBroker;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
@@ -15,6 +16,13 @@ public class Main {
 
     public static final NetworkDevice CAN_INTERFACE = lookupDev();
     public static HashMap<String, Set<String>> ATMAMap = new HashMap<>();
+    public static ArrayList<String> ATMATrace = new ArrayList<>();
+    public static ArrayList<String> currentIDs = new ArrayList<>();
+    private static int counter = 0;
+    private static int threshold = 10;
+    public static boolean profileMatrix[][] = null;
+    public static boolean trainingMode = false;
+    public static boolean IDSMode = false;
 
     private static NetworkDevice lookupDev() {
         try {
@@ -28,10 +36,14 @@ public class Main {
     public static void main(String[] args) {
         System.out.println("Connect vcan0");
 
+        trainingMode = true;
+
         CanBroker canBroker = null;
         try {
             canBroker = new CanBroker(Executors.defaultThreadFactory(), Duration.ofMillis(10));
             canBroker.addDevice(CAN_INTERFACE, (ch, frame) -> {
+                currentIDs = new ArrayList<>();
+
                 String frame_all = frame.toString();
                 //System.out.println(frame_all);
                 String[] frame_elements = frame_all.split(",", 4);
@@ -53,6 +65,24 @@ public class Main {
 
                 System.out.println("ATMAMap");
                 System.out.println(ATMAMap);
+
+                ATMATrace.add(frame_id);
+                System.out.println("in main() -- ATMATrace");
+                System.out.println(ATMATrace);
+
+                currentIDs.add(frame_id);
+                System.out.println("in main() -- currentIDs");
+                System.out.println(currentIDs);
+
+                counter++;
+                System.out.println("Counter: " + counter);
+
+                if (trainingMode && counter >= threshold) {
+                    createMatrix();
+                }
+                if (IDSMode) {
+                    idsDetect();
+                }
             });
             canBroker.addFilter(CanFilter.ANY);
         } catch (IOException e) {
@@ -60,5 +90,39 @@ public class Main {
         }
 
         System.out.println("Disconnect vcan0");
+    }
+
+    public static void createMatrix() {
+        // Create the matrix/profile for this vehicle, which enables the IDS to function
+
+        System.out.println("in createMatrix() -- ATMATrace");
+        System.out.println(ATMATrace);
+
+        profileMatrix = new boolean[6][6];
+        profileMatrix[0][0] = true;
+        profileMatrix[3][3] = true;
+
+        try {
+            Thread.sleep(10000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        trainingMode = false;
+    }
+
+    public static void idsDetect() {
+        // Use the matrix/profile to check current traffic,
+        // update false positives,
+        // and raise alerts
+
+        if (currentIDs.isEmpty()) {
+            // No data received; no alert
+            return;
+        }
+
+        if (false) {
+            System.out.println("***** ALERT! Suspicious traffic detected! *****");
+        }
     }
 }
