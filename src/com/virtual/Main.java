@@ -92,37 +92,19 @@ public class Main {
     public static void createMatrix() {
         // Create the matrix/profile for this vehicle, which enables the IDS to function
 
-        // Efficient algorithm to find all unique elements of the ArrayList--how about a HashSet?
-        // Then, for each element in the HashSet,
-        // iterate over the trace, and add any ID that follows the current ID into the matrix as true (default is false)
-        // Done!
-
-        // Can't be a matrix
-        // How about an ArrayList of IDs, and for each ID,
-        // we have a key, value dictionary
-        // where the key is the ID, and the value is true/false, depending on if it is valid or not
-
-        // Alternatively, if we still want a matrix, we can save an ArrayList (or something)
-        // of the proper order of rows and columns
-        // Each time we encounter an ID, we find its position in the ArrayList (or String array[])
-        // And update the same position in the true/false matrix
-
-        // Which is more efficient? Checking an array for the position of the currentID,
-        // then the position of the ID-to-check?
-        // Or a HashMap where we find the currentID in the outer HashMap,
-        // followed by the ID-to-check in the inner HashMap?
-
         System.out.println("in createMatrix() -- ATMATrace");
         System.out.println(ATMATrace);
 
+        // HashSet removes duplicates
+        // then back to ArrayList
+        // then to primitive Array (for performance)
+        // then sort (for performance)
         HashSet<String> ATMASet = new HashSet<>(ATMATrace);
         ArrayList<String> uniqueATMA = new ArrayList(ATMASet);
         ATMAOrder = uniqueATMA.toArray(new String[uniqueATMA.size()]);
         Arrays.sort(ATMAOrder);
 
         profileMatrix = new boolean[ATMAOrder.length][ATMAOrder.length];
-        //profileMatrix[0][0] = true;
-        //profileMatrix[3][3] = true;
 
         // This is an example of the profileMatrix
         // "ATMAOrder" is the order for both the rows and the columns
@@ -140,14 +122,13 @@ public class Main {
         for (int i = 0; i < ATMAOrder.length; i++) {
             String currentId = ATMAOrder[i];
 
-            // Because we're iterating through ATMAOrder,
-            // the current index is the index we would find by binary search
-            //int row = Arrays.binarySearch(ATMAOrder, currentId);
-
             for (String id : ATMATrace) {
                 if (checkNext) {
                     // This ID was preceded by the current ID,
                     // meaning it is a valid transition and should be changed to true
+
+                    // We know "i" is the row because we are iterating by ATMAOrder
+                    // and we can find "j" for the column using binarySearch, since we sorted the array
                     int j = Arrays.binarySearch(ATMAOrder, id);
                     profileMatrix[i][j] = true;
                 }
@@ -160,6 +141,8 @@ public class Main {
             }
         }
 
+        // BEGIN -- PRINTING FOR VALIDATION / DEBUGGING
+        // **
         System.out.println("in createMatrix() -- ATMAOrder");
         System.out.printf("%-10s", "");
         for (int i = 0; i < ATMAOrder.length; i++) {
@@ -175,6 +158,8 @@ public class Main {
             }
             System.out.println();
         }
+        // **
+        // END -- PRINTING FOR VALIDATION / DEBUGGING
 
         try {
             Thread.sleep(10000);
