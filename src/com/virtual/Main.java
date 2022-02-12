@@ -12,6 +12,10 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Executors;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 public class Main {
 
     public static final NetworkDevice CAN_INTERFACE = lookupDev();
@@ -95,8 +99,67 @@ public class Main {
     public static void createMatrix() {
         // Create the matrix/profile for this vehicle, which enables the IDS to function
 
+        // Efficient algorithm to find all unique elements of the ArrayList--how about a HashSet?
+        // Then, for each element in the HashSet,
+        // iterate over the trace, and add any ID that follows the current ID into the matrix as true (default is false)
+        // Done!
+
+        // Can't be a matrix
+        // How about an ArrayList of IDs, and for each ID,
+        // we have a key, value dictionary
+        // where the key is the ID, and the value is true/false, depending on if it is valid or not
+
+        // Alternatively, if we still want a matrix, we can save an ArrayList (or something)
+        // of the proper order of rows and columns
+        // Each time we encounter an ID, we find its position in the ArrayList (or String array[])
+        // And update the same position in the true/false matrix
+
+        // Which is more efficient? Checking an array for the position of the currentID,
+        // then the position of the ID-to-check?
+        // Or a HashMap where we find the currentID in the outer HashMap,
+        // followed by the ID-to-check in the inner HashMap?
+
         System.out.println("in createMatrix() -- ATMATrace");
         System.out.println(ATMATrace);
+
+        HashSet<String> ATMASet = new HashSet<>(ATMATrace);
+
+        HashMap<String, HashMap<String, Boolean>> parentMatrix = new HashMap<>();
+
+        // Create a HashMap of all IDs with the values initialized to false
+        // If we do not see them in the trace, they will remain false
+        HashMap<String, Boolean> falseMatrix = new HashMap<>();
+        for (String id : ATMASet) {
+            falseMatrix.put(id, false);
+        }
+
+        HashMap<String, Boolean> childMatrix = new HashMap<>(falseMatrix);
+
+        boolean checkNext = false;
+
+        for (String currentId : ATMASet) {
+            for (String id : ATMATrace) {
+                if (currentId.equals(id)) {
+                    checkNext = true;
+                } else {
+                    checkNext = false;
+                }
+
+                if (checkNext) {
+                    // This ID was preceded by the current ID,
+                    // meaning it is a valid transition and should be changed to true
+                    childMatrix.put(id, true);
+                }
+            }
+
+            // Add the child HashMap for this ID into the parent HashMap of all IDs
+            parentMatrix.put(currentId, childMatrix);
+            childMatrix = new HashMap<>(falseMatrix);
+        }
+
+        // Now that our matrix/profile, in the form of a HashMap of HashMaps, is generated
+        // We need to save it as JSON
+        //JSONObject jsonObject = new JSONObject(parentMatrix);
 
         profileMatrix = new boolean[6][6];
         profileMatrix[0][0] = true;
