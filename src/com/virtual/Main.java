@@ -30,6 +30,9 @@ public class Main {
     public static double ratioThreshold = 0.9;
     public static double totalTrafficThreshold = 2000;
 
+    private static final int invalid_id_alert = 1;
+    private static final int invalid_id_sequence_alert = 2;
+
     private static NetworkDevice lookupDev() {
         try {
             return NetworkDevice.lookup("vcan0");
@@ -220,9 +223,17 @@ public class Main {
             if (row < 0) {
                 System.out.println("This is an anomaly: This ID is not valid");
                 System.out.println("prevID: " + prevID);
+
+                // Given the size of our trace, we would never expect a previously unknown ECU to start transmitting
+                // As such, we expect an unknown identifier to indicate an attack
+                sendNotification(invalid_id_alert);
             } else if (col < 0) {
                     System.out.println("This is an anomaly: This ID is not valid");
                     System.out.println("nextID: " + nextID);
+
+                    // Given the size of our trace, we would never expect a previously unknown ECU to start transmitting
+                    // As such, we expect an unknown identifier to indicate an attack
+                    sendNotification(invalid_id_alert);
             } else if (!profileMatrix[row][col]) {
                 System.out.println("This is an anomaly: This sequence is not valid");
                 System.out.println("prevID: " + prevID + ", nextID: " + nextID);
@@ -257,15 +268,7 @@ public class Main {
         }
 
         if (anomalyCounter >= anomalyThreshold) {
-            System.out.println("***** ALERT! Suspicious traffic detected! *****");
-            anomalyCounter = 0;
-
-            // We've encountered suspicious traffic, so we need to reset the healthyCounter
-            healthyCounter = 0;
-
-            // We've encountered suspicious traffic, so we need to remove the anomalies
-            // because we think they are suspicious traffic, not false positives
-            anomalyTrace = new ArrayList<>();
+            sendNotification(invalid_id_sequence_alert);
         }
 
         // If we have an extended period of healthy traffic,
@@ -311,6 +314,30 @@ public class Main {
             profileMatrix[row][col] = true;
         }
 
+        anomalyTrace = new ArrayList<>();
+    }
+
+    public static void sendNotification(int alert_type) {
+        System.out.println("***** ALERT! Suspicious traffic detected! *****");
+
+        switch (alert_type) {
+            case invalid_id_alert:
+                System.out.println("***** Invalid messages have been detected. This may indicate a bus error or an attack. *****");
+                break;
+            case invalid_id_sequence_alert:
+                System.out.println("***** Unusual patterns of messages have been detected. This may be the result of unusual activity, or it may indicate an attack. *****");
+                break;
+            default:
+                System.out.println("***** Unknown. *****");
+        }
+
+        anomalyCounter = 0;
+
+        // We've encountered suspicious traffic, so we need to reset the healthyCounter
+        healthyCounter = 0;
+
+        // We've encountered suspicious traffic, so we need to remove the anomalies
+        // because we think they are suspicious traffic, not false positives
         anomalyTrace = new ArrayList<>();
     }
 }
