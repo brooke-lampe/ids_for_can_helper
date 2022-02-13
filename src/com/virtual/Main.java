@@ -15,11 +15,20 @@ public class Main {
     public static ArrayList<String> ATMATrace = new ArrayList<>();
     public static ArrayList<String> currentIDs = new ArrayList<>();
     private static int counter = 0;
-    private static int threshold = 10;
+    private static int threshold = 1000000;
     public static String[] ATMAOrder = null;
     public static boolean profileMatrix[][] = null;
     public static boolean trainingMode = false;
     public static boolean IDSMode = false;
+    public static int anomalyCounter = 0;
+    public static int anomalyThreshold = 10;
+    public static int healthyCounter = 0;
+    public static int healthyThreshold = 2000;
+    public static ArrayList<String> anomalyTrace = new ArrayList<>();
+    public static double anomalyRatio = 0;
+    public static double healthyRatio = 0;
+    public static double ratioThreshold = 0.9;
+    public static double totalTrafficThreshold = 2000;
 
     private static NetworkDevice lookupDev() {
         try {
@@ -39,7 +48,9 @@ public class Main {
         try {
             canBroker = new CanBroker(Executors.defaultThreadFactory(), Duration.ofMillis(10));
             canBroker.addDevice(CAN_INTERFACE, (ch, frame) -> {
-                currentIDs = new ArrayList<>();
+                if (currentIDs.size() > 10) {
+                    currentIDs = new ArrayList<>();
+                }
 
                 String frame_all = frame.toString();
                 //System.out.println(frame_all);
@@ -49,7 +60,7 @@ public class Main {
                 frame_id = frame_id.split("=")[1];
                 frame_data = frame_data.split("=")[1];
                 frame_data = frame_data.replaceAll("[\\[\\],)]", "");
-                System.out.println("frame_id: " + frame_id + ", frame_data: " + frame_data);
+                //System.out.println("frame_id: " + frame_id + ", frame_data: " + frame_data);
 
                 Set<String> data;
                 if (ATMAMap.containsKey(frame_id)) {
@@ -60,24 +71,28 @@ public class Main {
                 data.add(frame_data);
                 ATMAMap.put(frame_id, data);
 
-                System.out.println("ATMAMap");
-                System.out.println(ATMAMap);
+                //System.out.println("ATMAMap");
+                //System.out.println(ATMAMap);
 
                 ATMATrace.add(frame_id);
-                System.out.println("in main() -- ATMATrace");
-                System.out.println(ATMATrace);
+                //System.out.println("in main() -- ATMATrace");
+                //System.out.println(ATMATrace);
 
                 currentIDs.add(frame_id);
-                System.out.println("in main() -- currentIDs");
-                System.out.println(currentIDs);
+                //System.out.println("in main() -- currentIDs");
+                //System.out.println(currentIDs);
 
                 counter++;
-                System.out.println("Counter: " + counter);
+                if (counter % 10000 == 0) {
+                    System.out.println("Counter: " + counter);
+                }
+
+                //System.out.println("trainingMode: " + trainingMode + ", IDSMode: " + IDSMode);
 
                 if (trainingMode && counter >= threshold) {
                     createMatrix();
                 }
-                if (IDSMode) {
+                if (IDSMode && currentIDs.size() > 10) {
                     idsDetect();
                 }
             });
@@ -91,9 +106,12 @@ public class Main {
 
     public static void createMatrix() {
         // Create the matrix/profile for this vehicle, which enables the IDS to function
+        System.out.println("Creating the matrix...");
 
-        System.out.println("in createMatrix() -- ATMATrace");
-        System.out.println(ATMATrace);
+        System.out.println("ATMATrace.length -- " + ATMATrace.size());
+
+        //System.out.println("in createMatrix() -- ATMATrace");
+        //System.out.println(ATMATrace);
 
         // HashSet removes duplicates
         // then back to ArrayList
@@ -143,6 +161,9 @@ public class Main {
 
         // BEGIN -- PRINTING FOR VALIDATION / DEBUGGING
         // **
+        System.out.println("ATMAOrder.length -- " + ATMAOrder.length);
+        System.out.println("profileMatrix.length -- " + profileMatrix.length + ", profileMatrix.width -- " + profileMatrix[0].length);
+
         System.out.println("in createMatrix() -- ATMAOrder");
         System.out.printf("%-10s", "");
         for (int i = 0; i < ATMAOrder.length; i++) {
@@ -161,27 +182,135 @@ public class Main {
         // **
         // END -- PRINTING FOR VALIDATION / DEBUGGING
 
+        trainingMode = false;
+        IDSMode = true;
+
         try {
             Thread.sleep(10000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-
-        trainingMode = false;
     }
 
     public static void idsDetect() {
         // Use the matrix/profile to check current traffic,
-        // update false positives,
-        // and raise alerts
+        // update false positives, and raise alerts
+
+        //System.out.println("In idsDetect");
 
         if (currentIDs.isEmpty()) {
             // No data received; no alert
+            System.out.println("Error: No data received!");
             return;
         }
 
-        if (false) {
-            System.out.println("***** ALERT! Suspicious traffic detected! *****");
+        // We need to check each pair of adjacent IDs in currentIDs
+        // if pair (i, i + 1) is a valid transition (true), we do nothing
+        // if pair (i, i + 1) is not a valid transition (false), we update the anomaly counter
+        // When the anomaly counter reaches the anomaly threshold, we raise an alert
+
+        //System.out.println("currentIDs.length -- " + currentIDs.size());
+
+        for (int i = 0; i < currentIDs.size() - 1; i++) {
+            String prevID = currentIDs.get(i);
+            String nextID = currentIDs.get(i + 1);
+
+            int row = Arrays.binarySearch(ATMAOrder, prevID);
+            int col = Arrays.binarySearch(ATMAOrder, nextID);
+            if (row < 0) {
+                System.out.println("This is an anomaly: This ID is not valid");
+                System.out.println("prevID: " + prevID);
+            } else if (col < 0) {
+                    System.out.println("This is an anomaly: This ID is not valid");
+                    System.out.println("nextID: " + nextID);
+            } else if (!profileMatrix[row][col]) {
+                System.out.println("This is an anomaly: This sequence is not valid");
+                System.out.println("prevID: " + prevID + ", nextID: " + nextID);
+                if (false) {
+                //if (counter >= 2000000) {
+                    System.out.println("in idsDetect() -- ATMAOrder");
+                    System.out.printf("%-10s", "");
+                    for (int x = 0; x < ATMAOrder.length; x++) {
+                        System.out.printf("%-10s", ATMAOrder[x]);
+                    }
+                    System.out.println();
+
+                    System.out.println("in idsDetect() -- profileMatrix");
+                    for (int x = 0; x < ATMAOrder.length; x++) {
+                        System.out.printf("%-10s", ATMAOrder[x]);
+                        for (int y = 0; y < ATMAOrder.length; y++) {
+                            System.out.printf("%-10s", profileMatrix[x][y]);
+                        }
+                        System.out.println();
+                    }
+                }
+                anomalyTrace.add(prevID);
+                anomalyTrace.add(nextID);
+                anomalyCounter++;
+                anomalyRatio++;
+            } else {
+                //System.out.println("This is normal");
+                //System.out.println("prevID: " + prevID + ", nextID: " + nextID);
+                healthyCounter++;
+                healthyRatio++;
+            }
         }
+
+        if (anomalyCounter >= anomalyThreshold) {
+            System.out.println("***** ALERT! Suspicious traffic detected! *****");
+            anomalyCounter = 0;
+
+            // We've encountered suspicious traffic, so we need to reset the healthyCounter
+            healthyCounter = 0;
+
+            // We've encountered suspicious traffic, so we need to remove the anomalies
+            // because we think they are suspicious traffic, not false positives
+            anomalyTrace = new ArrayList<>();
+        }
+
+        // If we have an extended period of healthy traffic,
+        // then previous suspicious traffic may have been false positives
+        // and we should update the matrix
+        // so that we do not see the same false positives
+        if (healthyCounter >= healthyThreshold) {
+            System.out.println("healthyThreshold reached, updating matrix...");
+
+            // We are going to perform the matrix update, we need to reset the healthyCounter
+            healthyCounter = 0;
+            updateMatrix();
+        }
+
+        // If we have mostly healthy traffic and very few anomalies
+        // then the anomalies may have been false positives, and we can update the matrix accordingly
+        // We don't want to update too often, so we will check when totalTraffic reaches totalTrafficThreshold
+        double totalTraffic = anomalyRatio + healthyRatio;
+        double percentHealthyTraffic = healthyRatio / totalTraffic;
+        if (totalTraffic > totalTrafficThreshold && percentHealthyTraffic > ratioThreshold) {
+            System.out.println("ratioThreshold reached, updating matrix...");
+            anomalyRatio = 0;
+            healthyRatio = 0;
+            updateMatrix();
+        }
+    }
+
+    public static void updateMatrix() {
+        // If we see very few anomalies over a significant period,
+        // then the "anomalies" are probably false positives
+        // We should record them so that we can update the matrix if have not hit the anomaly threshold
+        // (We do not think the "anomalies" were part of an attack--we think they were false positives)
+
+        // We need to iterate by pairs, because each pair is part of the trace,
+        // but it is not associated with the next pair
+        for (int i = 0; i < anomalyTrace.size() - 1; i += 2) {
+            String prevId = anomalyTrace.get(i);
+            int row = Arrays.binarySearch(ATMAOrder, prevId);
+
+            String nextId = anomalyTrace.get(i + 1);
+            int col = Arrays.binarySearch(ATMAOrder, nextId);
+
+            profileMatrix[row][col] = true;
+        }
+
+        anomalyTrace = new ArrayList<>();
     }
 }
