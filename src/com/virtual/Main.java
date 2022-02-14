@@ -32,7 +32,7 @@ public class Main {
     public static double healthyCounterForPercent = 0;
     public static double minimumHealthyPercent = 0.9;
     public static double minimumTrafficBeforeUpdate = 2000;
-    public static int invaldIDAlertCount = 0;
+    public static int invalidIDAlertCount = 0;
     public static int invalidSequenceAlertCount = 0;
     public static int totalAlertCount = 0;
 
@@ -330,7 +330,7 @@ public class Main {
         switch (alert_type) {
             case invalid_id_alert:
                 System.out.println("***** Invalid messages have been detected. This may indicate a bus error or an attack. *****");
-                invaldIDAlertCount++;
+                invalidIDAlertCount++;
                 break;
             case invalid_id_sequence_alert:
                 System.out.println("***** Unusual patterns of messages have been detected. This may be the result of unusual activity, or it may indicate an attack. *****");
@@ -340,7 +340,7 @@ public class Main {
                 System.out.println("***** Unknown. *****");
         }
 
-        System.out.println("invaldIDAlertCount: " + invaldIDAlertCount);
+        System.out.println("invaldIDAlertCount: " + invalidIDAlertCount);
         System.out.println("invalidSequenceAlertCount: " + invalidSequenceAlertCount);
 
         totalAlertCount++;
