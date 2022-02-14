@@ -62,14 +62,12 @@ public class Main {
                 }
 
                 String frame_all = frame.toString();
-                //System.out.println(frame_all);
                 String[] frame_elements = frame_all.split(",", 4);
                 String frame_id = frame_elements[0];
                 String frame_data = frame_elements[3];
                 frame_id = frame_id.split("=")[1];
                 frame_data = frame_data.split("=")[1];
                 frame_data = frame_data.replaceAll("[\\[\\],)]", "");
-                //System.out.println("frame_id: " + frame_id + ", frame_data: " + frame_data);
 
                 Set<String> data;
                 if (ATMAMap.containsKey(frame_id)) {
@@ -78,25 +76,15 @@ public class Main {
                     data = new HashSet<>();
                 }
                 data.add(frame_data);
+
                 ATMAMap.put(frame_id, data);
-
-                //System.out.println("ATMAMap");
-                //System.out.println(ATMAMap);
-
                 ATMATrace.add(frame_id);
-                //System.out.println("in main() -- ATMATrace");
-                //System.out.println(ATMATrace);
-
                 currentIDs.add(frame_id);
-                //System.out.println("in main() -- currentIDs");
-                //System.out.println(currentIDs);
 
                 counter++;
                 if (counter % 10000 == 0) {
                     System.out.println("Counter: " + counter);
                 }
-
-                //System.out.println("trainingMode: " + trainingMode + ", IDSMode: " + IDSMode);
 
                 if (trainingMode && counter >= threshold) {
                     createMatrix();
@@ -118,9 +106,6 @@ public class Main {
         System.out.println("Creating the matrix...");
 
         System.out.println("ATMATrace.length -- " + ATMATrace.size());
-
-        //System.out.println("in createMatrix() -- ATMATrace");
-        //System.out.println(ATMATrace);
 
         // HashSet removes duplicates
         // then back to ArrayList
@@ -205,8 +190,6 @@ public class Main {
         // Use the matrix/profile to check current traffic,
         // update false positives, and raise alerts
 
-        //System.out.println("In idsDetect");
-
         if (currentIDs.isEmpty()) {
             // No data received; no alert
             System.out.println("Error: No data received!");
@@ -218,8 +201,6 @@ public class Main {
         // if pair (i, i + 1) is not a valid transition (false), we update the anomaly counter
         // When the anomaly counter reaches the anomaly threshold, we raise an alert
 
-        //System.out.println("currentIDs.length -- " + currentIDs.size());
-
         for (int i = 0; i < currentIDs.size() - 1; i++) {
             String prevID = currentIDs.get(i);
             String nextID = currentIDs.get(i + 1);
@@ -227,15 +208,15 @@ public class Main {
             int row = Arrays.binarySearch(ATMAOrder, prevID);
             int col = Arrays.binarySearch(ATMAOrder, nextID);
             if (row < 0) {
-                System.out.println("This is an anomaly: This ID is not valid");
-                System.out.println("prevID: " + prevID);
+//                System.out.println("This is an anomaly: This ID is not valid");
+//                System.out.println("prevID: " + prevID);
 
                 // Given the size of our trace, we would never expect a previously unknown ECU to start transmitting
                 // As such, we expect an unknown identifier to indicate an attack
                 sendNotification(invalid_id_alert);
             } else if (col < 0) {
-                    System.out.println("This is an anomaly: This ID is not valid");
-                    System.out.println("nextID: " + nextID);
+//                    System.out.println("This is an anomaly: This ID is not valid");
+//                    System.out.println("nextID: " + nextID);
 
                     // Given the size of our trace, we would never expect a previously unknown ECU to start transmitting
                     // As such, we expect an unknown identifier to indicate an attack
@@ -243,31 +224,11 @@ public class Main {
             } else if (!profileMatrix[row][col]) {
                 System.out.println("This is an anomaly: This sequence is not valid");
                 System.out.println("prevID: " + prevID + ", nextID: " + nextID);
-                if (false) {
-                //if (counter >= 2000000) {
-                    System.out.println("in idsDetect() -- ATMAOrder");
-                    System.out.printf("%-10s", "");
-                    for (int x = 0; x < ATMAOrder.length; x++) {
-                        System.out.printf("%-10s", ATMAOrder[x]);
-                    }
-                    System.out.println();
-
-                    System.out.println("in idsDetect() -- profileMatrix");
-                    for (int x = 0; x < ATMAOrder.length; x++) {
-                        System.out.printf("%-10s", ATMAOrder[x]);
-                        for (int y = 0; y < ATMAOrder.length; y++) {
-                            System.out.printf("%-10s", profileMatrix[x][y]);
-                        }
-                        System.out.println();
-                    }
-                }
                 anomalyTrace.add(prevID);
                 anomalyTrace.add(nextID);
                 anomalyCounter++;
                 anomalyCounterForPercent++;
             } else {
-                //System.out.println("This is normal");
-                //System.out.println("prevID: " + prevID + ", nextID: " + nextID);
                 healthyCounter++;
                 healthyCounterForPercent++;
             }
@@ -282,7 +243,7 @@ public class Main {
         // and we should update the matrix
         // so that we do not see the same false positives
         if (healthyCounter >= healthyThreshold) {
-            System.out.println("healthyThreshold reached, updating matrix...");
+//            System.out.println("healthyThreshold reached, updating matrix...");
 
             // We are going to perform the matrix update, we need to reset the healthyCounter
             healthyCounter = 0;
@@ -295,7 +256,7 @@ public class Main {
         double totalTraffic = anomalyCounterForPercent + healthyCounterForPercent;
         double percentHealthyTraffic = healthyCounterForPercent / totalTraffic;
         if (totalTraffic > minimumTrafficBeforeUpdate && percentHealthyTraffic > minimumHealthyPercent) {
-            System.out.println("percentHealthyTraffic reached, updating matrix...");
+//            System.out.println("percentHealthyTraffic reached, updating matrix...");
             anomalyCounterForPercent = 0;
             healthyCounterForPercent = 0;
             updateMatrix();
