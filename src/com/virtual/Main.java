@@ -295,7 +295,7 @@ public class Main {
         double totalTraffic = anomalyCounterForPercent + healthyCounterForPercent;
         double percentHealthyTraffic = healthyCounterForPercent / totalTraffic;
         if (totalTraffic > minimumTrafficBeforeUpdate && percentHealthyTraffic > minimumHealthyPercent) {
-            System.out.println("ratioThreshold reached, updating matrix...");
+            System.out.println("percentHealthyTraffic reached, updating matrix...");
             anomalyCounterForPercent = 0;
             healthyCounterForPercent = 0;
             updateMatrix();
