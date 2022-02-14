@@ -11,24 +11,30 @@ import java.util.concurrent.Executors;
 public class Main {
 
     public static final NetworkDevice CAN_INTERFACE = lookupDev();
+
     public static HashMap<String, Set<String>> ATMAMap = new HashMap<>();
     public static ArrayList<String> ATMATrace = new ArrayList<>();
     public static ArrayList<String> currentIDs = new ArrayList<>();
-    private static int counter = 0;
-    private static int threshold = 1000000;
+    public static ArrayList<String> anomalyTrace = new ArrayList<>();
     public static String[] ATMAOrder = null;
-    public static boolean profileMatrix[][] = null;
+    public static boolean[][] profileMatrix = null;
+
     public static boolean trainingMode = false;
     public static boolean IDSMode = false;
+
+    private static int counter = 0;
+    private static int threshold = 1000000;
     public static int anomalyCounter = 0;
     public static int anomalyThreshold = 10;
     public static int healthyCounter = 0;
     public static int healthyThreshold = 2000;
-    public static ArrayList<String> anomalyTrace = new ArrayList<>();
-    public static double anomalyRatio = 0;
-    public static double healthyRatio = 0;
-    public static double ratioThreshold = 0.9;
-    public static double totalTrafficThreshold = 2000;
+    public static double anomalyCounterForPercent = 0;
+    public static double healthyCounterForPercent = 0;
+    public static double minimumHealthyPercent = 0.9;
+    public static double minimumTrafficBeforeUpdate = 2000;
+    public static int invaldIDAlertCount = 0;
+    public static int invalidSequenceAlertCount = 0;
+    public static int totalAlertCount = 0;
 
     private static final int invalid_id_alert = 1;
     private static final int invalid_id_sequence_alert = 2;
@@ -258,12 +264,12 @@ public class Main {
                 anomalyTrace.add(prevID);
                 anomalyTrace.add(nextID);
                 anomalyCounter++;
-                anomalyRatio++;
+                anomalyCounterForPercent++;
             } else {
                 //System.out.println("This is normal");
                 //System.out.println("prevID: " + prevID + ", nextID: " + nextID);
                 healthyCounter++;
-                healthyRatio++;
+                healthyCounterForPercent++;
             }
         }
 
@@ -286,12 +292,12 @@ public class Main {
         // If we have mostly healthy traffic and very few anomalies
         // then the anomalies may have been false positives, and we can update the matrix accordingly
         // We don't want to update too often, so we will check when totalTraffic reaches totalTrafficThreshold
-        double totalTraffic = anomalyRatio + healthyRatio;
-        double percentHealthyTraffic = healthyRatio / totalTraffic;
-        if (totalTraffic > totalTrafficThreshold && percentHealthyTraffic > ratioThreshold) {
+        double totalTraffic = anomalyCounterForPercent + healthyCounterForPercent;
+        double percentHealthyTraffic = healthyCounterForPercent / totalTraffic;
+        if (totalTraffic > minimumTrafficBeforeUpdate && percentHealthyTraffic > minimumHealthyPercent) {
             System.out.println("ratioThreshold reached, updating matrix...");
-            anomalyRatio = 0;
-            healthyRatio = 0;
+            anomalyCounterForPercent = 0;
+            healthyCounterForPercent = 0;
             updateMatrix();
         }
     }
@@ -315,6 +321,7 @@ public class Main {
         }
 
         anomalyTrace = new ArrayList<>();
+        anomalyCounter = 0;
     }
 
     public static void sendNotification(int alert_type) {
@@ -323,13 +330,21 @@ public class Main {
         switch (alert_type) {
             case invalid_id_alert:
                 System.out.println("***** Invalid messages have been detected. This may indicate a bus error or an attack. *****");
+                invaldIDAlertCount++;
                 break;
             case invalid_id_sequence_alert:
                 System.out.println("***** Unusual patterns of messages have been detected. This may be the result of unusual activity, or it may indicate an attack. *****");
+                invalidSequenceAlertCount++;
                 break;
             default:
                 System.out.println("***** Unknown. *****");
         }
+
+        System.out.println("invaldIDAlertCount: " + invaldIDAlertCount);
+        System.out.println("invalidSequenceAlertCount: " + invalidSequenceAlertCount);
+
+        totalAlertCount++;
+        System.out.println("totalAlertCount: " + totalAlertCount);
 
         anomalyCounter = 0;
 
