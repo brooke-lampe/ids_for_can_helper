@@ -15,7 +15,6 @@ public class Main {
     public static HashMap<String, Set<String>> ATMAMap = new HashMap<>();
     public static ArrayList<String> ATMATrace = new ArrayList<>();
     public static ArrayList<String> currentIDs = new ArrayList<>();
-    public static ArrayList<String> anomalyTrace = new ArrayList<>();
     public static String[] ATMAOrder = null;
     public static boolean[][] profileMatrix = null;
 
@@ -23,15 +22,17 @@ public class Main {
     public static boolean IDSMode = false;
 
     private static int counter = 0;
-    private static int threshold = 1000000;
+    // EVALUATION comment/uncomment
+    private static int threshold = 100;
+    //private static int threshold = 1000000;
     public static int anomalyCounter = 0;
     public static int anomalyThreshold = 10;
     public static int healthyCounter = 0;
-    public static int healthyThreshold = 2000;
+    public static int healthyThreshold = 1000;
     public static double anomalyCounterForPercent = 0;
     public static double healthyCounterForPercent = 0;
     public static double minimumHealthyPercent = 0.9;
-    public static double minimumTrafficBeforeUpdate = 2000;
+    public static double minimumTrafficBeforeUpdate = 1000;
     public static int invalidIDAlertCount = 0;
     public static int invalidSequenceAlertCount = 0;
     public static int totalAlertCount = 0;
@@ -142,7 +143,11 @@ public class Main {
                     // We know "i" is the row because we are iterating by ATMAOrder
                     // and we can find "j" for the column using binarySearch, since we sorted the array
                     int j = Arrays.binarySearch(ATMAOrder, id);
-                    profileMatrix[i][j] = true;
+                    if (j >= 0) {
+                        profileMatrix[i][j] = true;
+                    } else {
+                        System.out.println("This id is not found in the ATMAOrder: " + id);
+                    }
                 }
 
                 if (currentId.equals(id)) {
@@ -179,6 +184,9 @@ public class Main {
         trainingMode = false;
         IDSMode = true;
 
+        // Clear ATMATrace, so that we can use it for resizeMatrix()
+        ATMATrace = new ArrayList<>();
+
         try {
             Thread.sleep(10000);
         } catch (InterruptedException e) {
@@ -213,19 +221,29 @@ public class Main {
 
                 // Given the size of our trace, we would never expect a previously unknown ECU to start transmitting
                 // As such, we expect an unknown identifier to indicate an attack
-                sendNotification(invalid_id_alert);
+
+                // EVALUATION comment/uncomment
+                ATMATrace.add(prevID);
+                ATMATrace.add(nextID);
+
+//                sendNotification(invalid_id_alert);
             } else if (col < 0) {
 //                    System.out.println("This is an anomaly: This ID is not valid");
 //                    System.out.println("nextID: " + nextID);
 
                     // Given the size of our trace, we would never expect a previously unknown ECU to start transmitting
                     // As such, we expect an unknown identifier to indicate an attack
-                    sendNotification(invalid_id_alert);
+
+                    // EVALUATION comment/uncomment
+                    ATMATrace.add(prevID);
+                    ATMATrace.add(nextID);
+
+//                    sendNotification(invalid_id_alert);
             } else if (!profileMatrix[row][col]) {
                 System.out.println("This is an anomaly: This sequence is not valid");
                 System.out.println("prevID: " + prevID + ", nextID: " + nextID);
-                anomalyTrace.add(prevID);
-                anomalyTrace.add(nextID);
+                ATMATrace.add(prevID);
+                ATMATrace.add(nextID);
                 anomalyCounter++;
                 anomalyCounterForPercent++;
             } else {
@@ -235,7 +253,8 @@ public class Main {
         }
 
         if (anomalyCounter >= anomalyThreshold) {
-            sendNotification(invalid_id_sequence_alert);
+            // EVALUATION comment/uncomment
+            //sendNotification(invalid_id_sequence_alert);
         }
 
         // If we have an extended period of healthy traffic,
@@ -271,18 +290,100 @@ public class Main {
 
         // We need to iterate by pairs, because each pair is part of the trace,
         // but it is not associated with the next pair
-        for (int i = 0; i < anomalyTrace.size() - 1; i += 2) {
-            String prevId = anomalyTrace.get(i);
+        for (int i = 0; i < ATMATrace.size() - 1; i += 2) {
+            String prevId = ATMATrace.get(i);
             int row = Arrays.binarySearch(ATMAOrder, prevId);
 
-            String nextId = anomalyTrace.get(i + 1);
+            String nextId = ATMATrace.get(i + 1);
             int col = Arrays.binarySearch(ATMAOrder, nextId);
 
-            profileMatrix[row][col] = true;
+            if (row >= 0 && col >= 0) {
+                profileMatrix[row][col] = true;
+            } else {
+                resizeMatrix();
+            }
         }
 
-        anomalyTrace = new ArrayList<>();
+        ATMATrace = new ArrayList<>();
         anomalyCounter = 0;
+    }
+
+    public static void resizeMatrix() {
+        // Create newATMAOrder containing the new elements
+        HashSet<String> ATMASet = new HashSet<>(ATMATrace);
+        // Include the previous ATMAOrder
+        Collections.addAll(ATMASet, ATMAOrder);
+        ArrayList<String> uniqueATMA = new ArrayList(ATMASet);
+        String[] newATMAOrder = uniqueATMA.toArray(new String[uniqueATMA.size()]);
+        Arrays.sort(newATMAOrder);
+
+        // create newProfileMatrix sized to fit the new elements
+        boolean[][] newProfileMatrix = new boolean[newATMAOrder.length][newATMAOrder.length];
+
+        // Iterate over the old ATMAOrder (rows of the profileMatrix), then by the columns of the profileMatrix
+        // Find the index of the old ATMAOrder's row in the new ATMAOrder
+        // If profileMatrix[i][j] is false, then we ignore it (it is initialized to false anyway)
+        // If profileMatrix[i][j] is true, then we need to find the old ATMAOrder's column in the new ATMAOrder
+        for (int i = 0; i < ATMAOrder.length; i++) {
+            int newRow = Arrays.binarySearch(newATMAOrder, ATMAOrder[i]);
+
+            for (int j = 0; j < ATMAOrder.length; j++) {
+                if (profileMatrix[i][j]) {
+                    int newCol = Arrays.binarySearch(newATMAOrder, ATMAOrder[j]);
+                    newProfileMatrix[newRow][newCol] = true;
+                }
+            }
+        }
+
+        ATMAOrder = newATMAOrder;
+        profileMatrix = newProfileMatrix;
+
+        for (int i = 0; i < ATMATrace.size() - 1; i += 2) {
+            String prevId = ATMATrace.get(i);
+            int row = Arrays.binarySearch(ATMAOrder, prevId);
+
+            String nextId = ATMATrace.get(i + 1);
+            int col = Arrays.binarySearch(ATMAOrder, nextId);
+
+            if (row >= 0 && col >= 0) {
+                profileMatrix[row][col] = true;
+            } else {
+                System.out.println("Error resizing matrix. The 'row' is " + row + ", and the 'col' is " + col);
+            }
+        }
+
+        // BEGIN -- PRINTING FOR VALIDATION / DEBUGGING
+        // **
+        System.out.println("RESIZE MATRIX");
+        System.out.println("ATMAOrder.length -- " + ATMAOrder.length);
+        System.out.println("profileMatrix.length -- " + profileMatrix.length + ", profileMatrix.width -- " + profileMatrix[0].length);
+
+        System.out.println("in createMatrix() -- ATMAOrder");
+        System.out.printf("%-10s", "");
+        for (int i = 0; i < ATMAOrder.length; i++) {
+            System.out.printf("%-10s", ATMAOrder[i]);
+        }
+        System.out.println();
+
+        System.out.println("in createMatrix() -- profileMatrix");
+        for (int i = 0; i < ATMAOrder.length; i++) {
+            System.out.printf("%-10s", ATMAOrder[i]);
+            for (int j = 0; j < ATMAOrder.length; j++) {
+                System.out.printf("%-10s", profileMatrix[i][j]);
+            }
+            System.out.println();
+        }
+        // **
+        // END -- PRINTING FOR VALIDATION / DEBUGGING
+
+        // Clear ATMATrace, so that we can use it for resizeMatrix() again
+        ATMATrace = new ArrayList<>();
+
+        try {
+            Thread.sleep(10000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     public static void sendNotification(int alert_type) {
@@ -314,6 +415,6 @@ public class Main {
 
         // We've encountered suspicious traffic, so we need to remove the anomalies
         // because we think they are suspicious traffic, not false positives
-        anomalyTrace = new ArrayList<>();
+        ATMATrace = new ArrayList<>();
     }
 }
