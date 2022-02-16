@@ -23,10 +23,10 @@ public class Main {
 
     private static int counter = 0;
     // EVALUATION comment/uncomment
-    private static int threshold = 100;
-    //private static int threshold = 1000000;
+    //private static int threshold = 100;
+    private static int threshold = 1000000;
     public static int anomalyCounter = 0;
-    public static int anomalyThreshold = 10;
+    public static int anomalyThreshold = 3;
     public static int healthyCounter = 0;
     public static int healthyThreshold = 1000;
     public static double anomalyCounterForPercent = 0;
@@ -223,10 +223,10 @@ public class Main {
                 // As such, we expect an unknown identifier to indicate an attack
 
                 // EVALUATION comment/uncomment
-                ATMATrace.add(prevID);
-                ATMATrace.add(nextID);
+//                ATMATrace.add(prevID);
+//                ATMATrace.add(nextID);
 
-//                sendNotification(invalid_id_alert);
+                sendNotification(invalid_id_alert);
             } else if (col < 0) {
 //                    System.out.println("This is an anomaly: This ID is not valid");
 //                    System.out.println("nextID: " + nextID);
@@ -235,10 +235,10 @@ public class Main {
                     // As such, we expect an unknown identifier to indicate an attack
 
                     // EVALUATION comment/uncomment
-                    ATMATrace.add(prevID);
-                    ATMATrace.add(nextID);
+//                    ATMATrace.add(prevID);
+//                    ATMATrace.add(nextID);
 
-//                    sendNotification(invalid_id_alert);
+                    sendNotification(invalid_id_alert);
             } else if (!profileMatrix[row][col]) {
                 System.out.println("This is an anomaly: This sequence is not valid");
                 System.out.println("prevID: " + prevID + ", nextID: " + nextID);
@@ -254,7 +254,7 @@ public class Main {
 
         if (anomalyCounter >= anomalyThreshold) {
             // EVALUATION comment/uncomment
-            //sendNotification(invalid_id_sequence_alert);
+            sendNotification(invalid_id_sequence_alert);
         }
 
         // If we have an extended period of healthy traffic,
