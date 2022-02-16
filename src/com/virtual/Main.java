@@ -26,13 +26,13 @@ public class Main {
     //private static int threshold = 100;
     private static int threshold = 1000000;
     public static int anomalyCounter = 0;
-    public static int anomalyThreshold = 3;
+    public static int anomalyThreshold = 5;
     public static int healthyCounter = 0;
-    public static int healthyThreshold = 1000;
+    public static int healthyThreshold = 100;
     public static double anomalyCounterForPercent = 0;
     public static double healthyCounterForPercent = 0;
     public static double minimumHealthyPercent = 0.9;
-    public static double minimumTrafficBeforeUpdate = 1000;
+    public static double minimumTrafficBeforeUpdate = 100;
     public static int invalidIDAlertCount = 0;
     public static int invalidSequenceAlertCount = 0;
     public static int totalAlertCount = 0;
